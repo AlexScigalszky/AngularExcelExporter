@@ -1,0 +1,67 @@
+function FileExporter(filename) {
+  this.uri = 'data:application/vnd.ms-excel;base64,';
+  this.tmplWorkbookXML = '<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' + '<DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Author>Axel Richter</Author><Created>{created}</Created></DocumentProperties>' + '{worksheets}</Workbook>';
+  this.tmplWorksheetXML = '<Worksheet ss:Name="{nameWS}"><Table>{rows}</Table></Worksheet>';
+  this.tmplCellXML = '<Cell><Data ss:Type="{nameType}">{data}</Data></Cell>';
+  this.workbookXML = "";
+  this.wbname = filename;
+}
+
+/* [AS] Encode url components */
+FileExporter.prototype.base64 = function (s) {
+  return window.btoa(unescape(encodeURIComponent(s)));
+}
+
+/* [AS] Replacer function */
+FileExporter.prototype.format = function (s, c) {
+  return s.replace(/{(\w+)}/g, function (m, p) {
+    return c[p];
+  });
+}
+
+/* Convert the data to an excel object */
+FileExporter.prototype.createExcelFile = function (groupsOfArrayOfRows, arrayOfNamesOfGroup) {
+  var ctx = "";
+  var worksheetsXML = "";
+  var rowsXML = "";
+  var sheets = groupsOfArrayOfRows;
+  var rows;
+  var cells;
+  for (var i = 0; i < sheets.length; i++) {
+    rows = sheets[i];
+    for (var j = 0; j < rows.length; j++) {
+      cells = rows[j];
+      rowsXML += '<Row>';
+      for (var k = 0; k < cells.length; k++) {
+        ctx = {
+          nameType: 'String',
+          data: cells[k]
+        };
+        rowsXML += this.format(this.tmplCellXML, ctx);
+      }
+      rowsXML += '</Row>';
+    }
+    ctx = {
+      rows: rowsXML,
+      nameWS: arrayOfNamesOfGroup[i] || 'Sheet ' + i
+    };
+    worksheetsXML += this.format(this.tmplWorksheetXML, ctx);
+    rowsXML = "";
+  }
+  ctx = {
+    created: (new Date()).getTime(),
+    worksheets: worksheetsXML
+  };
+  this.workbookXML = this.format(this.tmplWorkbookXML, ctx);
+}
+
+/* [AS] Method for download the excel file */
+FileExporter.prototype.download = function () {
+  var link = document.createElement("A");
+  link.href = this.uri + this.base64(this.workbookXML);
+  link.download = this.wbname || 'Workbook.xls';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
